@@ -18,6 +18,7 @@ spec:
       # Use default service account for the patch job itself
       # The pipeline ServiceAccount will be created/patched by this job
       restartPolicy: Never
+      serviceAccountName: {{ .Values.app.name }}-patch-sa
       containers:
       - name: patch-serviceaccount
         image: quay.io/openshift/origin-cli:latest
