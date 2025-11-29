@@ -26,46 +26,48 @@ spec:
         - -c
         - |
           echo "Ensuring pipeline ServiceAccount exists in namespace {{ .Values.app.namespace }}..."
-          
-          # Create ServiceAccount if it doesn't exist
-          if ! oc get serviceaccount pipeline -n {{ .Values.app.namespace }} &>/dev/null; then
-            echo "Creating pipeline ServiceAccount..."
-            oc create serviceaccount pipeline -n {{ .Values.app.namespace }}
-          else
-            echo "ServiceAccount pipeline already exists"
-          fi
-          
-          # Patch secrets - add each secret individually
-          {{- if .Values.git.secretName }}
-          echo "Adding git secret: {{ .Values.git.secretName }}"
-          if oc patch serviceaccount pipeline -n {{ .Values.app.namespace }} \
-            --type=json \
-            -p='[{"op": "add", "path": "/secrets/-", "value": {"name": "{{ .Values.git.secretName }}"}}]' 2>/dev/null; then
-            echo "Successfully added git secret"
-          else
-            echo "Secret {{ .Values.git.secretName }} may already exist, skipping..."
-          fi
-          {{- end }}
-          
-          {{- if and .Values.sealedSecrets.enabled .Values.image.secretName }}
-          echo "Adding image secret: {{ .Values.image.secretName }}"
-          if oc patch serviceaccount pipeline -n {{ .Values.app.namespace }} \
-            --type=json \
-            -p='[{"op": "add", "path": "/secrets/-", "value": {"name": "{{ .Values.image.secretName }}"}}]' 2>/dev/null; then
-            echo "Successfully added image secret"
-          else
-            echo "Secret {{ .Values.image.secretName }} may already exist, skipping..."
-          fi
-          
-          echo "Adding imagePullSecret: {{ .Values.image.secretName }}"
-          if oc patch serviceaccount pipeline -n {{ .Values.app.namespace }} \
-            --type=json \
-            -p='[{"op": "add", "path": "/imagePullSecrets/-", "value": {"name": "{{ .Values.image.secretName }}"}}]' 2>/dev/null; then
-            echo "Successfully added imagePullSecret"
-          else
-            echo "ImagePullSecret {{ .Values.image.secretName }} may already exist, skipping..."
-          fi
-          {{- end }}
+
+          oc secrets link pipeline {{ .Values.image.secretName }} --for=pull,mount -n {{ .Values.app.namespace }} || echo "Secret {{ .Values.image.secretName }} may already be linked"
+           
+            # # Create ServiceAccount if it doesn't exist
+            # if ! oc get serviceaccount pipeline -n {{ .Values.app.namespace }} &>/dev/null; then
+            #   echo "Creating pipeline ServiceAccount..."
+            #   oc create serviceaccount pipeline -n {{ .Values.app.namespace }}
+            # else
+            #   echo "ServiceAccount pipeline already exists"
+            # fi
+            
+            # # Patch secrets - add each secret individually
+            # {{- if .Values.git.secretName }}
+            # echo "Adding git secret: {{ .Values.git.secretName }}"
+            # if oc patch serviceaccount pipeline -n {{ .Values.app.namespace }} \
+            #   --type=json \
+            #   -p='[{"op": "add", "path": "/secrets/-", "value": {"name": "{{ .Values.git.secretName }}"}}]' 2>/dev/null; then
+            #   echo "Successfully added git secret"
+            # else
+            #   echo "Secret {{ .Values.git.secretName }} may already exist, skipping..."
+            # fi
+            # {{- end }}
+            
+            # {{- if and .Values.sealedSecrets.enabled .Values.image.secretName }}
+            # echo "Adding image secret: {{ .Values.image.secretName }}"
+            # if oc patch serviceaccount pipeline -n {{ .Values.app.namespace }} \
+            #   --type=json \
+            #   -p='[{"op": "add", "path": "/secrets/-", "value": {"name": "{{ .Values.image.secretName }}"}}]' 2>/dev/null; then
+            #   echo "Successfully added image secret"
+            # else
+            #   echo "Secret {{ .Values.image.secretName }} may already exist, skipping..."
+            # fi
+            
+            # echo "Adding imagePullSecret: {{ .Values.image.secretName }}"
+            # if oc patch serviceaccount pipeline -n {{ .Values.app.namespace }} \
+            #   --type=json \
+            #   -p='[{"op": "add", "path": "/imagePullSecrets/-", "value": {"name": "{{ .Values.image.secretName }}"}}]' 2>/dev/null; then
+            #   echo "Successfully added imagePullSecret"
+            # else
+            #   echo "ImagePullSecret {{ .Values.image.secretName }} may already exist, skipping..."
+            # fi
+            # {{- end }}
           
           echo "ServiceAccount patch completed"
 {{- end }}
