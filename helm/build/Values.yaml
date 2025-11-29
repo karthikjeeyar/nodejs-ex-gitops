@@ -5,7 +5,7 @@ app:
   cluster: your-cluster.example.com
 
 git:
-  branch: main
+  branch: master
   repo: https://github.com/karthikjeeyar/nodejs-ex.git
   org: karthikjeeyar
   name: nodejs-ex
