@@ -1,0 +1,72 @@
+{{- if and .Values.sealedSecrets.enabled .Values.image.secretName }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Values.app.name }}-patch-pipeline-sa
+  namespace: {{ .Values.app.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ .Values.app.name }}
+    app.kubernetes.io/instance: {{ .Values.app.name }}
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-weight: "5"
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  ttlSecondsAfterFinished: 100
+  template:
+    spec:
+      # Use default service account for the patch job itself
+      # The pipeline ServiceAccount will be created/patched by this job
+      restartPolicy: Never
+      containers:
+      - name: patch-serviceaccount
+        image: quay.io/openshift/origin-cli:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Ensuring pipeline ServiceAccount exists in namespace {{ .Values.app.namespace }}..."
+          
+          # Create ServiceAccount if it doesn't exist
+          if ! oc get serviceaccount pipeline -n {{ .Values.app.namespace }} &>/dev/null; then
+            echo "Creating pipeline ServiceAccount..."
+            oc create serviceaccount pipeline -n {{ .Values.app.namespace }}
+          else
+            echo "ServiceAccount pipeline already exists"
+          fi
+          
+          # Patch secrets - add each secret individually
+          {{- if .Values.git.secretName }}
+          echo "Adding git secret: {{ .Values.git.secretName }}"
+          if oc patch serviceaccount pipeline -n {{ .Values.app.namespace }} \
+            --type=json \
+            -p='[{"op": "add", "path": "/secrets/-", "value": {"name": "{{ .Values.git.secretName }}"}}]' 2>/dev/null; then
+            echo "Successfully added git secret"
+          else
+            echo "Secret {{ .Values.git.secretName }} may already exist, skipping..."
+          fi
+          {{- end }}
+          
+          {{- if and .Values.sealedSecrets.enabled .Values.image.secretName }}
+          echo "Adding image secret: {{ .Values.image.secretName }}"
+          if oc patch serviceaccount pipeline -n {{ .Values.app.namespace }} \
+            --type=json \
+            -p='[{"op": "add", "path": "/secrets/-", "value": {"name": "{{ .Values.image.secretName }}"}}]' 2>/dev/null; then
+            echo "Successfully added image secret"
+          else
+            echo "Secret {{ .Values.image.secretName }} may already exist, skipping..."
+          fi
+          
+          echo "Adding imagePullSecret: {{ .Values.image.secretName }}"
+          if oc patch serviceaccount pipeline -n {{ .Values.app.namespace }} \
+            --type=json \
+            -p='[{"op": "add", "path": "/imagePullSecrets/-", "value": {"name": "{{ .Values.image.secretName }}"}}]' 2>/dev/null; then
+            echo "Successfully added imagePullSecret"
+          else
+            echo "ImagePullSecret {{ .Values.image.secretName }} may already exist, skipping..."
+          fi
+          {{- end }}
+          
+          echo "ServiceAccount patch completed"
+{{- end }}
+

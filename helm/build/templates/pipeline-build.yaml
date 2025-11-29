@@ -1,0 +1,114 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: {{ .Values.app.name }}-build
+  namespace: {{ .Values.app.namespace }}
+  labels:
+    type: pipeline
+    backstage.io/kubernetes-id: {{ .Values.app.name }}
+spec:
+  params:
+    - name: IMAGE
+      type: string
+    - name: IMAGE_TAG
+      type: string
+    - default: .
+      name: PATH_CONTEXT
+      type: string
+    - default: 20-minimal-ubi8
+      name: VERSION
+      type: string
+  tasks:
+    - name: fetch-repository
+      params:
+        - name: URL
+          value: '{{ .Values.git.repo }}'
+        - name: REVISION
+          value: '{{ .Values.git.branch }}'
+      taskRef:
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: git-clone
+          - name: namespace
+            value: openshift-pipelines
+        resolver: cluster
+      workspaces:
+        - name: output
+          workspace: shared-data
+    - name: build-and-push
+      params:
+        - name: IMAGE
+          value: '$(params.IMAGE):$(params.IMAGE_TAG)'
+        - name: TLS_VERIFY
+          value: 'false'
+        - name: CONTEXT
+          value: $(params.PATH_CONTEXT)
+        - name: VERSION
+          value: $(params.VERSION)
+      runAfter:
+        - fetch-repository
+      taskRef:
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: s2i-nodejs
+          - name: namespace
+            value: openshift-pipelines
+        resolver: cluster
+      workspaces:
+        - name: source
+          workspace: shared-data
+    - name: deploy
+      params:
+        - name: SCRIPT
+          value: oc rollout status deploy/{{ .Values.app.name }}
+      runAfter:
+        - build-and-push
+      taskRef:
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: openshift-client
+          - name: namespace
+            value: openshift-pipelines
+        resolver: cluster
+      # - name: update-gitops
+      #   runAfter:
+      #     - build-and-push
+      #   taskRef:
+      #     name: update-gitops-image
+      #   params:
+      #     - name: git-url
+      #       value: "https://github.com/karthikjeeyar/nodejs-ex-gitops.git"
+      #     - name: git-branch
+      #       value: main
+      #     - name: image
+      #       value: $(params.IMAGE)
+      #     - name: tag
+      #       value: $(params.IMAGE_TAG)
+      #   workspaces:
+      #     - name: source
+      #       workspace: shared-data
+      # - name: deploy
+      #   runAfter:
+      #     - update-gitops-image
+      #   taskRef:
+      #     name: argocd-task-sync-and-wait
+      #   params:
+      #     - name: git-url
+      #       value: "https://github.com/karthikjeeyar/nodejs-ex-gitops.git"
+      #     - name: git-branch
+      #       value: main
+      #     - name: image
+      #       value: $(params.IMAGE)
+      #     - name: tag
+      #       value: $(params.IMAGE_TAG)
+      #   workspaces:
+      #     - name: source
+      #       workspace: shared-data
+  workspaces:
+    - name: shared-data

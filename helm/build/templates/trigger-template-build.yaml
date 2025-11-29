@@ -1,0 +1,63 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerTemplate
+metadata:
+  name: {{ .Values.app.name }}-tt-run-build
+  namespace: {{ .Values.app.namespace }}
+  labels:
+    type: trigger-template
+    backstage.io/kubernetes-id: {{ .Values.app.name }}
+
+spec:
+  params:
+    - name: git-revision
+    - name: git-commit-message
+    - name: git-repo-url
+    - name: git-repo-clone-url
+    - name: git-repo-name
+    - name: content-type
+    - name: pusher-name
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1
+      kind: PipelineRun
+      metadata:
+        annotations:
+          pipeline.openshift.io/started-by: cluster-admin
+        generateName: {{ .Values.app.name }}-
+        labels:
+          app.kubernetes.io/instance: {{ .Values.app.name }}
+          app.kubernetes.io/name: {{ .Values.app.name }}
+          operator.tekton.dev/operand-name: openshift-pipelines-addons
+          pipeline.openshift.io/runtime: nodejs
+          pipeline.openshift.io/runtime-version: 20-minimal-ubi8
+          pipeline.openshift.io/type: kubernetes
+          tekton.dev/pipeline: {{ .Values.app.name }}
+        namespace: rhd-test
+      spec:
+        params:
+          - name: APP_NAME
+            value: {{ .Values.app.name }}
+          - name: GIT_REPO
+            value: '{{ .Values.git.repo }}'
+          - name: GIT_REVISION
+            value: ''
+          - name: IMAGE_NAME
+            value: '{{ .Values.image.registry }}/{{ .Values.image.organization }}/{{ .Values.image.name }}:{{ .Values.image.tag }}'
+          - name: PATH_CONTEXT
+            value: .
+          - name: VERSION
+            value: 20-minimal-ubi8
+        pipelineRef:
+          name: {{ .Values.app.name }}-build
+        status: null
+        workspaces:
+          - name: workspace
+            volumeClaimTemplate:
+              metadata:
+                labels:
+                  tekton.dev/pipeline: {{ .Values.app.name }}
+              spec:
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: 1Gi

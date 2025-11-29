@@ -1,0 +1,45 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: nodejs-ex-prod
+  namespace: openshift-gitops
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/karthikjeeyar/nodejs-ex-gitops.git
+    targetRevision: HEAD
+    path: ./helm/app
+    helm:
+      valueFiles:
+        - Values.yaml
+        - Values-prod.yaml
+      values: |
+        # Override namespace for production
+        app:
+          namespace: nodejs-ex-prod
+        image:
+          tag: prod
+        # Add production-specific overrides here
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: nodejs-ex-prod
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+    - RespectIgnoreDifferences=true
+    - ApplyOutOfSyncOnly=true
+  retry:
+    limit: -1
+    backoff:
+      duration: 5s
+      factor: 2
+      maxDuration: 2m
+
