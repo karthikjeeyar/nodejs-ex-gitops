@@ -24,6 +24,7 @@ spec:
         - /bin/sh
         - -c
         - |
+          
           cat <<EOF | oc apply -f -
           apiVersion: tekton.dev/v1
           kind: PipelineRun
@@ -67,4 +68,5 @@ spec:
                       requests:
                         storage: 1Gi
           EOF
+          sleep 30000
           echo "PipelineRun created successfully."
