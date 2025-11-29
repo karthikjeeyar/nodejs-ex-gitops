@@ -28,8 +28,7 @@ spec:
           echo "Ensuring pipeline ServiceAccount exists in namespace {{ .Values.app.namespace }}..."
 
           oc secrets link pipeline {{ .Values.image.secretName }} --for=pull,mount -n {{ .Values.app.namespace }} || echo "Secret {{ .Values.image.secretName }} may already be linked"
-          sleep 20000
-           
+        
             # # Create ServiceAccount if it doesn't exist
             # if ! oc get serviceaccount pipeline -n {{ .Values.app.namespace }} &>/dev/null; then
             #   echo "Creating pipeline ServiceAccount..."
