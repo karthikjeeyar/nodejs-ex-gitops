@@ -20,11 +20,6 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: nodejs-ex-dev
-  ignoreDifferences:
-    - group: bitnami.com
-      kind: SealedSecret
-      jsonPointers:
-        - /spec/encryptedData
   syncPolicy:
     automated:
       prune: true
